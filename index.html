@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>ESP32IP通訊</title>
+		<style>
+			body{
+				background-color:#e0e5ec;
+				display:flex;
+				justify-content:center;
+				align-items:center;
+				height:auto;
+				flex-direction:column;
+			}
+
+			/*遮罩层*/
+			#popupOverlay{
+				position:fixed;
+				top:0;
+				left:0;
+				width:100%;
+				height:100%;
+				background:rgba(0,0,0,0.5);
+				display:none;
+				justify-content:center;
+				align-items:center;
+				}
+
+			/*弹出框*/
+			#popupInputBox{
+				background:white;
+				padding:10px;
+				border-radius:10px;
+				box-shadow:0 4px 8px rgba(0,0,0,0.2);
+			}
+
+			#popupInputBox input{
+				padding:10px;
+				font-size:20px;
+				width:200px;
+			}
+
+			#popupInputBox button{
+				padding:10px;
+				background-color:#007BFF;
+				color:white;
+				border:none;
+				border-radius:10px;
+				margin-top:10px;
+				cursor:pointer;
+			}
+
+			#popupInputBox button:hover{
+				background-color:#0056b3;
+			}
+
+			/*遮罩层*/
+			#name{
+				position:fixed;
+				top:0;
+				left:0;
+				width:100%;
+				height:100%;
+				background:rgba(0,0,0,0.5);
+				display:none;
+				justify-content:center;
+				align-items:center;
+			}
+
+			/*弹出框*/
+			#nameBox{
+				background:white;
+				padding:10px;
+				border-radius:10px;
+				box-shadow:0 4px 8px rgba(0,0,0,0.2);
+			}
+
+			#nameBox input{
+				padding:10px;
+				font-size:20px;
+				width:200px;
+			}
+
+			#nameBox button{
+				padding:10px;
+				background-color:#007BFF;
+				color:white;
+				border:none;
+				border-radius:10px;
+				margin-top:10px;
+				cursor:pointer;
+			}
+
+			#nameBox button:hover{
+				background-color:#0056b3;
+			}
+
+			#chatBox{
+				width:100%;
+				height:55vh;
+				border-radius:10px;
+				overflow-y:auto;
+				margin:auto;
+				background:#f8f9fa;
+				box-shadow:2px 2px 10px rgba(0,0,0,0.1);
+				display:flex;
+				flex-direction:column
+			}
+
+			/*美化滚动条*/
+			#chatBox::-webkit-scrollbar{
+				width:8px;
+			}
+
+			#chatBox::-webkit-scrollbar-thumb{
+				background:#007BFF;
+				border-radius:4px;
+			}
+
+			input{
+				margin-top:5px;
+				width:400px;
+				padding:12px;
+				font-size:18px;
+				border:none;
+				outline:none;
+				border-radius:10px;
+				background:#e0e5ec;
+				box-shadow:5px 5px 10px #bebebe,-5px -5px 10px #ffffff;
+			}
+
+			button{
+				margin-top:5px;
+				padding:12px 20px;
+				font-size:18px;
+				border:none;
+				border-radius:10px;
+				background:#e0e5ec;
+				box-shadow:5px 5px 10px #bebebe,-5px -5px 10px #ffffff;
+			    cursor:pointer;
+			}
+
+			#button1{
+				padding:8px 15px;
+			}
+
+			button:active{
+				box-shadow:inset 5px 5px 10px #bebebe,inset -5px -5px 10px #ffffff;
+			}
+			.container{
+				display:flex;/*使用Flexbox布局*/
+				justify-content:space-between;/*两端对齐：文本居中，按钮靠右*/
+				align-items:center;/*垂直居中对齐*/
+				width:100%;/*容器宽度100%*/
+			}
+
+			.text{
+				text-align:center;/*文本居中*/
+				flex-grow:1;/*文本占据剩余空间*/
+			}
+			.input{
+				text-align:Left;/*文本居中*/
+				flex-grow:1;/*文本占据剩余空间*/
+			}
+			.content{
+				display:flex;
+				justify-content:flex-end;/*将元素推到容器底部*/
+				align-items:center;/*垂直居中对齐*/
+				width:100%;/*容器宽度100%*/
+			}
+		</style>
+	</head>
+	<body>
+		<div id="popupOverlay">
+			<div id="popupInputBox">
+				<input type="text"id="userInput"placeholder="IP">
+				<button onclick="submitInput()">確認</button>
+			</div>
+		</div>
+		<div id="name">
+			<div id="nameBox">
+				<input	type="text"id="Inputname"placeholder="使用者名稱">
+				<button	onclick="sendnameInput()">確認</button>
+			</div>
+		</div>
+		<h1>ESP32IP通訊</h1>
+		<div class="container">
+			<div class="text">
+				<h2 id="status">未連接
+			</div>
+			<class="button-container">
+            <button onclick="showPopup()"id=button1>連接</button>
+		</div>
+		<div id="chatBox">
+		</div>
+		<div class="content">
+			<button id="nametxt"onclick="showsendname()">使用者名稱</button>
+			<input type="text"id="messageInput"class="input"placeholder="輸入訊息...">
+			<button onclick="sendMessage()">發送</button>
+		</div>
+		
+
+		<script>
+			let socket=null;
+			let username="";
+			let ip="";
+			let sendname="";
+
+			//点击按钮时显示输入框
+			function showPopup(){
+				document.getElementById('popupOverlay').style.display='flex';
+			}
+
+			function submitInput(){
+				ip=document.getElementById('userInput').value;
+				document.getElementById('popupOverlay').style.display='none';//关闭弹出框
+				connectWebSocket();
+			}
+
+			function showsendname(){
+				document.getElementById('name').style.display='flex';
+			}
+
+			function sendnameInput(){
+				sendname=document.getElementById('Inputname').value;
+				document.getElementById('name').style.display='none';//关闭弹出框
+				if(!sendname){return;}
+				alert(`成功自訂使用者名稱為:${sendname}`);
+				document.getElementById("nametxt").innerHTML=`使用者:${sendname}`;
+			}
+
+			document.getElementById("messageInput").addEventListener("keydown",function(event){
+				if(event.key==="Enter"){//按下Enter键
+					sendMessage();
+				}
+			});
+
+			function connectWebSocket(){
+				if(!ip){
+					alert("請输入IP！");
+					return;
+				}
+
+				letwsUrl=`ws://${ip}:81/`;
+				socket=newWebSocket(wsUrl);
+
+				socket.onopen=()=>{
+					document.getElementById("status").innerText="✅已連接";
+					addMessage("📡連接成功！");
+				};
+
+				socket.onmessage=(event)=>{
+					addMessage(`👤${event.data}`);
+				};
+
+				socket.onclose=()=>{
+					document.getElementById("status").innerText="⛓️‍💥連接已斷開";
+					addMessage("⛓️‍💥無有效連接");
+				};
+
+				socket.onerror=(error)=>{
+					document.getElementById("status").innerText="❌連接錯誤";
+					alert("⚠連接錯誤請输入有效IP⚠");
+				};
+			}
+					
+			function sendMessage(){
+				letmsg=document.getElementById("messageInput").value;
+				if(!msg)return;
+				if(socket&&socket.readyState===WebSocket.OPEN){
+					letmsg1=`${sendname}:${msg}`
+					socket.send(msg1);
+					addMessage(`🟢你:${msg}`);
+					document.getElementById("messageInput").value="";
+				}else{
+					alert("未連接有效IP，請先输入IP並連接！");
+				}
+			}
+
+			function addMessage(text){
+				letchatBox=document.getElementById("chatBox");
+				chatBox.innerHTML+=`<p>${text}</p>`;
+				chatBox.scrollTop=chatBox.scrollHeight;
+			}
+		</script>
+	</body>
+</html>
