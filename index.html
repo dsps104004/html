@@ -266,10 +266,10 @@
 			}
 					
 			function sendMessage(){
-				letmsg=document.getElementById("messageInput").value;
+				let msg=document.getElementById("messageInput").value;
 				if(!msg)return;
 				if(socket&&socket.readyState===WebSocket.OPEN){
-					letmsg1=`${sendname}:${msg}`
+					let msg1=`${sendname}:${msg}`
 					socket.send(msg1);
 					addMessage(`🟢你:${msg}`);
 					document.getElementById("messageInput").value="";
