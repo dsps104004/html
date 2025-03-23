@@ -243,7 +243,7 @@
 				}
 
 				let wsUrl=`ws://${ip}:81/`;
-				socket=newWebSocket(wsUrl);
+				socket=new WebSocket(wsUrl);
 
 				socket.onopen=()=>{
 					document.getElementById("status").innerText="✅已連接";
