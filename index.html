@@ -5,59 +5,68 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NFC 動態智慧卡控制台</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #121212; color: #f5f5f5; margin: 0; padding: 20px; }
-    .container { max-width: 480px; margin: 0 auto; }
-    h2 { text-align: center; color: #4fc3f7; margin-bottom: 20px; }
-    .card { background: #1e1e1e; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-    .status { font-size: 14px; color: #aaa; margin-bottom: 12px; text-align: center; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #121212; color: #f5f5f5; margin: 0; padding: 16px; }
+    .container { max-width: 500px; margin: 0 auto; }
+    h2 { text-align: center; color: #4fc3f7; margin: 10px 0 16px 0; font-size: 20px; }
+    .card { background: #1e1e1e; border-radius: 12px; padding: 16px; margin-bottom: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+    .status { font-size: 13px; color: #bbb; margin-bottom: 12px; text-align: center; line-height: 1.5; }
     .status.connected { color: #81c784; font-weight: bold; }
     button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    .btn-setup-adv { background: #6a1b9a; color: white; margin-bottom: 10px; font-size: 14px; }
     .btn-connect { background: #0288d1; color: white; }
     .btn-disconnect { background: #d32f2f; color: white; display: none; }
     .btn-direct { background: #f57c00; color: white; margin-top: 10px; }
-    .btn-save { background: #388e3c; color: white; margin-top: 10px; }
-    .slot-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
-    .slot-label { font-size: 13px; color: #4fc3f7; width: 48px; flex-shrink: 0; }
+    .btn-add { background: #2e3b4e; color: #81d4fa; margin-top: 8px; font-size: 14px; padding: 10px; border: 1px dashed #4fc3f7; }
+    .btn-save { background: #388e3c; color: white; margin-top: 12px; }
+    .slot-row { display: flex; gap: 6px; margin-bottom: 10px; align-items: center; }
+    .slot-label { font-size: 12px; font-weight: bold; color: #4fc3f7; width: 46px; flex-shrink: 0; }
     input[type="text"] { width: 100%; box-sizing: border-box; flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #333; background: #2c2c2c; color: #fff; font-size: 14px; }
-    .btn-use { width: auto; padding: 10px 12px; background: #455a64; color: #fff; font-size: 13px; }
+    .btn-use { width: auto; padding: 10px 10px; background: #455a64; color: #fff; font-size: 12px; white-space: nowrap; }
     .btn-use.active { background: #00acc1; color: #000; }
-    .active-box { font-size: 14px; word-break: break-all; color: #ffd54f; margin-top: 6px; padding: 8px; background: #262626; border-radius: 6px; }
-    .section-title { font-size: 15px; font-weight: bold; margin-bottom: 10px; color: #e0e0e0; }
+    .btn-del { width: auto; padding: 10px 10px; background: #3a2222; color: #ef5350; font-size: 12px; }
+    .active-box { font-size: 14px; word-break: break-all; color: #ffd54f; margin-top: 6px; padding: 10px; background: #262626; border-radius: 6px; border-left: 3px solid #ffd54f; }
+    .section-title { font-size: 15px; font-weight: bold; margin-bottom: 10px; color: #e0e0e0; display: flex; justify-content: space-between; align-items: center; }
+    .badge { font-size: 11px; background: #333; color: #4fc3f7; padding: 2px 8px; border-radius: 10px; }
   </style>
 </head>
 <body>
 <div class="container">
-  <h2>NFC 智慧卡控制台</h2>
+  <h2>NFC 動態智慧卡控制台</h2>
 
-  <!-- 連線狀態區 -->
+  <!-- 1. 連線與觸發設定區 -->
   <div class="card">
-    <div id="statusText" class="status">尚未連線 (請先發送 SETUP 廣播並觸發卡片)</div>
-    <button id="btnConnect" class="btn-connect" onclick="connectBLE()">連線至 NFC 智慧卡</button>
-    <button id="btnDisconnect" class="btn-disconnect" onclick="disconnectBLE()">完成設定並斷線休眠</button>
+    <div id="statusText" class="status">步驟 1：先啟動設定廣播並碰觸卡片喚醒<br>步驟 2：點擊下方藍色按鈕連線</div>
+    <button id="btnTriggerAdv" class="btn-setup-adv" onclick="triggerEngModeHelper()">📡 啟動工程設定模式廣播 (Services: FFFF)</button>
+    <button id="btnConnect" class="btn-connect" onclick="connectBLE()">🔗 搜尋並連線至 NFC 智慧卡</button>
+    <button id="btnDisconnect" class="btn-disconnect" onclick="disconnectBLE()">✅ 完成設定並斷線休眠</button>
+    
     <div style="margin-top: 14px; font-size: 13px; color: #bbb;">當前卡片發射網址：</div>
-    <div id="currentActiveUrl" class="active-box">--</div>
+    <div id="currentActiveUrl" class="active-box">尚未讀取</div>
   </div>
 
-  <!-- 操作控制面板 -->
+  <!-- 2. 操作控制面板 -->
   <div id="controlPanel" style="opacity: 0.4; pointer-events: none;">
     
-    <!-- 新增：Direct URL 臨時網址區 -->
+    <!-- Direct URL 臨時網址區 -->
     <div class="card">
-      <div class="section-title">⚡ Direct URL (臨時網址，不佔用槽位)</div>
+      <div class="section-title">⚡ Direct URL <span class="badge">臨時直寫・不佔槽位</span></div>
       <input type="text" id="directUrlInput" placeholder="輸入臨時網址 (如 ://example.com)">
       <button class="btn-direct" onclick="sendDirectUrl()">立即寫入臨時網址</button>
     </div>
 
-    <!-- 5 組預設槽位區 -->
+    <!-- 動態不限數量槽位區 -->
     <div class="card">
-      <div class="section-title">📌 預設網址槽位 (支援廣播 SLOT1~5 切換)</div>
+      <div class="section-title">
+        <span>📌 預設網址槽位</span>
+        <span id="slotCountBadge" class="badge">共 0 組</span>
+      </div>
       <div id="slotsContainer"></div>
-      <button class="btn-save" onclick="saveAllSlots()">儲存 5 組預設網址至卡片</button>
+      <button class="btn-add" onclick="addNewSlot()">＋ 新增一組網址槽位</button>
+      <button class="btn-save" onclick="saveAllSlots()">💾 儲存所有槽位至卡片記憶體</button>
     </div>
 
   </div>
 </div>
-
 <script>
   const SERVICE_UUID     = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
   const CHAR_ACTIVE_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
@@ -67,48 +76,88 @@
   let activeChar = null;
   let slotsChar = null;
   let currentActive = "";
+  let slotsData = [];
 
-  const slotsContainer = document.getElementById('slotsContainer');
-  for (let i = 0; i < 5; i++) {
-    slotsContainer.innerHTML += `
-      <div class="slot-row">
-        <span class="slot-label">SLOT ${i + 1}</span>
-        <input type="text" id="slotInput${i}" placeholder="輸入網址 (如 example.com)">
-        <button class="btn-use" id="btnUse${i}" onclick="activateSlot(${i})">立即啟用</button>
-      </div>
-    `;
+  function renderSlots() {
+    const container = document.getElementById('slotsContainer');
+    container.innerHTML = '';
+    document.getElementById('slotCountBadge').innerText = `共 ${slotsData.length} 組`;
+
+    slotsData.forEach((url, index) => {
+      const cleanSlotUrl = url.trim().replace(/^https?:\/\//i, '');
+      const isActive = (cleanSlotUrl !== '' && cleanSlotUrl === currentActive);
+      const hexCode = 'FF' + (index + 1).toString(16).padStart(2, '0').toUpperCase();
+
+      const row = document.createElement('div');
+      row.className = 'slot-row';
+      row.innerHTML = `
+        <span class="slot-label" title="廣播UUID: ${hexCode}">SLOT ${index + 1}<br><small style="color:#888;font-size:10px;">${hexCode}</small></span>
+        <input type="text" id="slotInput${index}" value="${url}" oninput="updateSlotValue(${index}, this.value)" placeholder="輸入網址 (如 example.com)">
+        <button class="btn-use ${isActive ? 'active' : ''}" onclick="activateSlot(${index})">${isActive ? '使用中' : '啟用'}</button>
+        <button class="btn-del" onclick="removeSlot(${index})" title="刪除此槽位">✕</button>
+      `;
+      container.appendChild(row);
+    });
+  }
+
+  function updateSlotValue(index, val) {
+    slotsData[index] = val;
+  }
+
+  function addNewSlot() {
+    slotsData.push('');
+    renderSlots();
+  }
+
+  function removeSlot(index) {
+    if (slotsData.length <= 1) {
+      alert('至少需保留 1 組槽位！');
+      return;
+    }
+    slotsData.splice(index, 1);
+    renderSlots();
+  }
+
+  async function triggerEngModeHelper() {
+    if (navigator.bluetooth && navigator.bluetooth.requestLEScan) {
+      try {
+        await navigator.bluetooth.requestLEScan({ acceptAllAdvertisements: true });
+      } catch (e) {}
+    }
+    alert('【開啟設定模式指引】\n\n由於 iOS 網頁安全限制，瀏覽器無法直接發射背景藍牙廣播：\n1. 請切換至 nRF Connect 開啟「Eng Mode (Services: FFFF)」\n2. 拿手機 NFC 碰觸卡片喚醒它\n3. 回到此網頁點擊「搜尋並連線至 NFC 智慧卡」即可！');
   }
 
   async function connectBLE() {
     try {
-      document.getElementById('statusText').innerText = '正在搜尋 NFC-SmartCard...';
+      document.getElementById('statusText').innerText = '正在開啟藍牙掃描視窗，請選擇 NFC-SmartCard...';
+      
       bleDevice = await navigator.bluetooth.requestDevice({
-        filters: [{ name: 'NFC-SmartCard' }],
-        optionalServices: [SERVICE_UUID]
+        acceptAllDevices: true,
+        optionalServices: [SERVICE_UUID.toLowerCase()]
       });
 
       bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+      document.getElementById('statusText').innerText = '正在建立 GATT 連線與讀取資料...';
+      
       const server = await bleDevice.gatt.connect();
-      const service = await server.getPrimaryService(SERVICE_UUID);
+      const service = await server.getPrimaryService(SERVICE_UUID.toLowerCase());
 
-      activeChar = await service.getCharacteristic(CHAR_ACTIVE_UUID);
-      slotsChar = await service.getCharacteristic(CHAR_SLOTS_UUID);
+      activeChar = await service.getCharacteristic(CHAR_ACTIVE_UUID.toLowerCase());
+      slotsChar = await service.getCharacteristic(CHAR_SLOTS_UUID.toLowerCase());
 
       const activeVal = await activeChar.readValue();
-      currentActive = new TextDecoder().decode(activeVal);
+      currentActive = new TextDecoder().decode(activeVal).trim();
       document.getElementById('currentActiveUrl').innerText = 'https://' + currentActive;
 
       const slotsVal = await slotsChar.readValue();
-      const slotsList = new TextDecoder().decode(slotsVal).split('\n');
-      for (let i = 0; i < 5; i++) {
-        const val = slotsList[i] || '';
-        document.getElementById(`slotInput${i}`).value = val;
-        updateActiveButtonStyle(i, val === currentActive);
-      }
+      const rawSlots = new TextDecoder().decode(slotsVal).trim();
+      slotsData = rawSlots ? rawSlots.split('\n') : ['google.com'];
+      renderSlots();
 
-      document.getElementById('statusText').innerText = '已連線至卡片 (斷線後自動休眠)';
+      document.getElementById('statusText').innerText = '✅ 已連線至卡片 (斷線後卡片將自動休眠)';
       document.getElementById('statusText').classList.add('connected');
       document.getElementById('btnConnect').style.display = 'none';
+      document.getElementById('btnTriggerAdv').style.display = 'none';
       document.getElementById('btnDisconnect').style.display = 'block';
       document.getElementById('controlPanel').style.opacity = '1';
       document.getElementById('controlPanel').style.pointerEvents = 'auto';
@@ -125,23 +174,13 @@
   }
 
   function onDisconnected() {
-    document.getElementById('statusText').innerText = '已斷線 (卡片已寫入並進入省電休眠)';
+    document.getElementById('statusText').innerText = '已斷線 (卡片已寫入最新設定並進入省電休眠)';
     document.getElementById('statusText').classList.remove('connected');
     document.getElementById('btnConnect').style.display = 'block';
+    document.getElementById('btnTriggerAdv').style.display = 'block';
     document.getElementById('btnDisconnect').style.display = 'none';
     document.getElementById('controlPanel').style.opacity = '0.4';
     document.getElementById('controlPanel').style.pointerEvents = 'none';
-  }
-
-  function updateActiveButtonStyle(index, isActive) {
-    const btn = document.getElementById(`btnUse${index}`);
-    if (isActive) {
-      btn.classList.add('active');
-      btn.innerText = '使用中';
-    } else {
-      btn.classList.remove('active');
-      btn.innerText = '立即啟用';
-    }
   }
 
   async function writeUrlToCard(rawUrl) {
@@ -153,10 +192,7 @@
       await activeChar.writeValue(encoder.encode(url));
       currentActive = url;
       document.getElementById('currentActiveUrl').innerText = 'https://' + currentActive;
-      for (let i = 0; i < 5; i++) {
-        const slotVal = document.getElementById(`slotInput${i}`).value.trim().replace(/^https?:\/\//i, '');
-        updateActiveButtonStyle(i, slotVal === currentActive);
-      }
+      renderSlots();
     } catch (err) {
       alert('寫入失敗：' + err.message);
     }
@@ -168,22 +204,28 @@
   }
 
   function activateSlot(index) {
-    const slotUrl = document.getElementById(`slotInput${index}`).value;
+    const slotUrl = slotsData[index];
     writeUrlToCard(slotUrl);
   }
 
   async function saveAllSlots() {
-    let lines = [];
-    for (let i = 0; i < 5; i++) {
-      let val = document.getElementById(`slotInput${i}`).value.trim().replace(/^https?:\/\//i, '');
-      lines.push(val || 'google.com');
+    const cleanedList = slotsData
+      .map(u => u.trim().replace(/^https?:\/\//i, ''))
+      .filter(u => u.length > 0);
+
+    if (cleanedList.length === 0) {
+      return alert('請至少保留一組有效網址！');
     }
+
     try {
       const encoder = new TextEncoder();
-      await slotsChar.writeValue(encoder.encode(lines.join('\n')));
-      alert('5 組預設網址已成功存入卡片記憶體！');
+      const payload = cleanedList.join('\n');
+      await slotsChar.writeValue(encoder.encode(payload));
+      slotsData = cleanedList;
+      renderSlots();
+      alert(`已成功將 ${cleanedList.length} 組網址存入卡片記憶體！`);
     } catch (err) {
-      alert('儲存失敗：' + err.message);
+      alert('儲存失敗（請確認總字元數未超過 512 bytes）：' + err.message);
     }
   }
 </script>
