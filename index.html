@@ -11,22 +11,25 @@
     .card { background: #1e1e1e; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
     .status { font-size: 14px; color: #aaa; margin-bottom: 12px; text-align: center; }
     .status.connected { color: #81c784; font-weight: bold; }
-    button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; }
     .btn-connect { background: #0288d1; color: white; }
     .btn-disconnect { background: #d32f2f; color: white; display: none; }
+    .btn-direct { background: #f57c00; color: white; margin-top: 10px; }
     .btn-save { background: #388e3c; color: white; margin-top: 10px; }
     .slot-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
     .slot-label { font-size: 13px; color: #4fc3f7; width: 48px; flex-shrink: 0; }
-    input[type="text"] { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #333; background: #2c2c2c; color: #fff; font-size: 14px; }
+    input[type="text"] { width: 100%; box-sizing: border-box; flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #333; background: #2c2c2c; color: #fff; font-size: 14px; }
     .btn-use { width: auto; padding: 10px 12px; background: #455a64; color: #fff; font-size: 13px; }
     .btn-use.active { background: #00acc1; color: #000; }
-    .active-box { font-size: 14px; word-break: break-all; color: #ffd54f; margin-top: 8px; }
+    .active-box { font-size: 14px; word-break: break-all; color: #ffd54f; margin-top: 6px; padding: 8px; background: #262626; border-radius: 6px; }
+    .section-title { font-size: 15px; font-weight: bold; margin-bottom: 10px; color: #e0e0e0; }
   </style>
 </head>
 <body>
 <div class="container">
   <h2>NFC 智慧卡控制台</h2>
 
+  <!-- 連線狀態區 -->
   <div class="card">
     <div id="statusText" class="status">尚未連線 (請先發送 SETUP 廣播並觸發卡片)</div>
     <button id="btnConnect" class="btn-connect" onclick="connectBLE()">連線至 NFC 智慧卡</button>
@@ -35,10 +38,23 @@
     <div id="currentActiveUrl" class="active-box">--</div>
   </div>
 
-  <div id="controlPanel" class="card" style="opacity: 0.4; pointer-events: none;">
-    <div style="font-size: 15px; font-weight: bold; margin-bottom: 12px;">預設網址槽位 (支援廣播 SLOT1~5 快速切換)</div>
-    <div id="slotsContainer"></div>
-    <button class="btn-save" onclick="saveAllSlots()">儲存 5 組預設網址至卡片</button>
+  <!-- 操作控制面板 -->
+  <div id="controlPanel" style="opacity: 0.4; pointer-events: none;">
+    
+    <!-- 新增：Direct URL 臨時網址區 -->
+    <div class="card">
+      <div class="section-title">⚡ Direct URL (臨時網址，不佔用槽位)</div>
+      <input type="text" id="directUrlInput" placeholder="輸入臨時網址 (如 ://example.com)">
+      <button class="btn-direct" onclick="sendDirectUrl()">立即寫入臨時網址</button>
+    </div>
+
+    <!-- 5 組預設槽位區 -->
+    <div class="card">
+      <div class="section-title">📌 預設網址槽位 (支援廣播 SLOT1~5 切換)</div>
+      <div id="slotsContainer"></div>
+      <button class="btn-save" onclick="saveAllSlots()">儲存 5 組預設網址至卡片</button>
+    </div>
+
   </div>
 </div>
 
@@ -52,7 +68,6 @@
   let slotsChar = null;
   let currentActive = "";
 
-  // 初始化 5 個輸入框
   const slotsContainer = document.getElementById('slotsContainer');
   for (let i = 0; i < 5; i++) {
     slotsContainer.innerHTML += `
@@ -79,12 +94,10 @@
       activeChar = await service.getCharacteristic(CHAR_ACTIVE_UUID);
       slotsChar = await service.getCharacteristic(CHAR_SLOTS_UUID);
 
-      // 讀取當前啟用網址
       const activeVal = await activeChar.readValue();
       currentActive = new TextDecoder().decode(activeVal);
       document.getElementById('currentActiveUrl').innerText = 'https://' + currentActive;
 
-      // 讀取 5 組預設槽位
       const slotsVal = await slotsChar.readValue();
       const slotsList = new TextDecoder().decode(slotsVal).split('\n');
       for (let i = 0; i < 5; i++) {
@@ -93,7 +106,7 @@
         updateActiveButtonStyle(i, val === currentActive);
       }
 
-      document.getElementById('statusText').innerText = '已連線至卡片 (斷線後卡片將自動休眠)';
+      document.getElementById('statusText').innerText = '已連線至卡片 (斷線後自動休眠)';
       document.getElementById('statusText').classList.add('connected');
       document.getElementById('btnConnect').style.display = 'none';
       document.getElementById('btnDisconnect').style.display = 'block';
@@ -131,10 +144,9 @@
     }
   }
 
-  async function activateSlot(index) {
-    let url = document.getElementById(`slotInput${index}`).value.trim();
-    url = url.replace(/^https?:\/\//i, ''); // 自動去除前綴交由晶片壓縮編碼
-    if (!url) return alert('請先輸入網址！');
+  async function writeUrlToCard(rawUrl) {
+    let url = rawUrl.trim().replace(/^https?:\/\//i, '');
+    if (!url) return alert('請先輸入有效網址！');
 
     try {
       const encoder = new TextEncoder();
@@ -142,11 +154,22 @@
       currentActive = url;
       document.getElementById('currentActiveUrl').innerText = 'https://' + currentActive;
       for (let i = 0; i < 5; i++) {
-        updateActiveButtonStyle(i, document.getElementById(`slotInput${i}`).value.trim().replace(/^https?:\/\//i, '') === currentActive);
+        const slotVal = document.getElementById(`slotInput${i}`).value.trim().replace(/^https?:\/\//i, '');
+        updateActiveButtonStyle(i, slotVal === currentActive);
       }
     } catch (err) {
       alert('寫入失敗：' + err.message);
     }
+  }
+
+  function sendDirectUrl() {
+    const directUrl = document.getElementById('directUrlInput').value;
+    writeUrlToCard(directUrl);
+  }
+
+  function activateSlot(index) {
+    const slotUrl = document.getElementById(`slotInput${index}`).value;
+    writeUrlToCard(slotUrl);
   }
 
   async function saveAllSlots() {
